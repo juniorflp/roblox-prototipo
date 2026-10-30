@@ -11,3 +11,7 @@ sourcemap.json
 /out/
 
 .DS_Store
+
+# Exceção: modelos exportados do Studio para assets/ são parte do jogo
+!assets/**/*.rbxm
+!assets/**/*.rbxmx

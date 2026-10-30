@@ -1,15 +1,19 @@
+--!strict
 --// Regras: orbs colecionáveis, núcleo interativo e teleporte.
+--// Os objetos vêm do mapa (montado no Studio) e são encontrados por tag.
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
-local Config = require(RS:WaitForChild("Compartilhado"):WaitForChild("Config"))
+local Compartilhado = RS:WaitForChild("Compartilhado")
+local Config = require(Compartilhado:WaitForChild("Config"))
+local Tags = require(Compartilhado:WaitForChild("Tags"))
 
 local Gameplay = {}
 
-local function criarRemotes(): Folder
+local function criarRemotes(totalOrbs: number): Folder
 	local antiga = RS:FindFirstChild(Config.PASTA_REMOTES)
 	if antiga then
 		antiga:Destroy()
@@ -17,7 +21,8 @@ local function criarRemotes(): Folder
 
 	local pasta = Instance.new("Folder")
 	pasta.Name = Config.PASTA_REMOTES
-	for _, nome in ipairs(Config.REMOTES) do
+	pasta:SetAttribute("TotalOrbs", totalOrbs)
+	for _, nome in Config.REMOTES do
 		local ev = Instance.new("RemoteEvent")
 		ev.Name = nome
 		ev.Parent = pasta
@@ -38,25 +43,14 @@ local function darLeaderstats(player: Player)
 	stats.Parent = player
 end
 
+-- A animação do orb roda no cliente (client/Animacoes); aqui só o estado.
 local function prepararOrb(orb: BasePart, total: number, evOrb: RemoteEvent)
 	local ativo = true
-	local alturaBase = orb.Position.Y
-
-	task.spawn(function()
-		local t = math.random() * 10
-		while orb.Parent do
-			t += RunService.Heartbeat:Wait()
-			if ativo then
-				orb.CFrame = CFrame.new(orb.Position.X, alturaBase + math.sin(t * 2) * 0.8, orb.Position.Z)
-					* CFrame.Angles(0, t, 0)
-			end
-		end
-	end)
 
 	local function alternarVisual(visivel: boolean)
-		orb.Transparency = visivel and 0 or 1
+		orb.Transparency = if visivel then 0 else 1
 		orb.CanTouch = visivel
-		for _, l in ipairs(orb:GetChildren()) do
+		for _, l in orb:GetChildren() do
 			if l:IsA("PointLight") then
 				l.Enabled = visivel
 			end
@@ -68,10 +62,7 @@ local function prepararOrb(orb: BasePart, total: number, evOrb: RemoteEvent)
 			return
 		end
 		local personagem = hit:FindFirstAncestorOfClass("Model")
-		if not personagem then
-			return
-		end
-		local player = Players:GetPlayerFromCharacter(personagem)
+		local player = personagem and Players:GetPlayerFromCharacter(personagem)
 		if not player then
 			return
 		end
@@ -80,12 +71,10 @@ local function prepararOrb(orb: BasePart, total: number, evOrb: RemoteEvent)
 		alternarVisual(false)
 
 		local stats = player:FindFirstChild("leaderstats")
-		if stats then
-			local contador = stats:FindFirstChild("Orbs") :: IntValue?
-			if contador then
-				contador.Value += 1
-				evOrb:FireClient(player, contador.Value, total)
-			end
+		local contador = stats and stats:FindFirstChild("Orbs") :: IntValue?
+		if contador then
+			contador.Value += 1
+			evOrb:FireClient(player, contador.Value, total)
 		end
 
 		task.delay(Config.RESPAWN_ORB, function()
@@ -98,69 +87,83 @@ local function prepararOrb(orb: BasePart, total: number, evOrb: RemoteEvent)
 	end)
 end
 
-function Gameplay.iniciar(cenario: Folder)
-	local remotes = criarRemotes()
-	local evOrb = remotes:WaitForChild("OrbColetado") :: RemoteEvent
-	local evVoltar = remotes:WaitForChild("VoltarAoCentro") :: RemoteEvent
-	local evAviso = remotes:WaitForChild("AvisoHUD") :: RemoteEvent
-
-	Players.PlayerAdded:Connect(darLeaderstats)
-	for _, p in ipairs(Players:GetPlayers()) do
-		darLeaderstats(p)
+local function prepararNucleo(nucleo: BasePart, evAviso: RemoteEvent)
+	local prompt = nucleo:FindFirstChildOfClass("ProximityPrompt")
+	if not prompt then
+		warn("[Gameplay] Núcleo sem ProximityPrompt:", nucleo:GetFullName())
+		return
 	end
 
-	local pastaOrbs = cenario:WaitForChild("Orbs")
-	local total = #pastaOrbs:GetChildren()
-	for _, orb in ipairs(pastaOrbs:GetChildren()) do
-		if orb:IsA("BasePart") then
-			prepararOrb(orb, total, evOrb)
-		end
-	end
-
-	-- núcleo girando
-	local nucleo = cenario.Base:WaitForChild("Nucleo") :: BasePart
-	task.spawn(function()
-		local t = 0
-		while nucleo.Parent do
-			t += RunService.Heartbeat:Wait()
-			nucleo.CFrame = CFrame.new(0, 10 + math.sin(t) * 0.6, 0)
-				* CFrame.Angles(math.rad(25), t * 0.8, math.rad(15))
-		end
-	end)
-
-	-- prompt troca a cor dos faróis
 	local corAtual = 1
-	local prompt = nucleo:WaitForChild("PromptNucleo") :: ProximityPrompt
 	prompt.Triggered:Connect(function(player)
 		corAtual = corAtual % #Config.CORES_NUCLEO + 1
 		local cor = Config.CORES_NUCLEO[corAtual]
 		local info = TweenInfo.new(0.4)
 
-		TweenService:Create(nucleo, info, { Color = cor }):Play()
-		for _, l in ipairs(nucleo:GetChildren()) do
-			if l:IsA("PointLight") then
-				TweenService:Create(l, info, { Color = cor }):Play()
-			end
-		end
-		for _, p in ipairs(cenario.Pilares:GetChildren()) do
-			if p:IsA("BasePart") and p.Name:match("^Farol") then
-				TweenService:Create(p, info, { Color = cor }):Play()
-				local l = p:FindFirstChildOfClass("PointLight")
-				if l then
+		local function pintar(parte: BasePart)
+			TweenService:Create(parte, info, { Color = cor }):Play()
+			for _, l in parte:GetChildren() do
+				if l:IsA("PointLight") then
 					TweenService:Create(l, info, { Color = cor }):Play()
 				end
 			end
 		end
 
+		pintar(nucleo)
+		for _, farol in CollectionService:GetTagged(Tags.FAROL) do
+			if farol:IsA("BasePart") then
+				pintar(farol)
+			end
+		end
+
 		evAviso:FireAllClients(player.DisplayName .. " mudou a cor do núcleo")
 	end)
+end
 
-	-- teleporte pedido pela HUD
+function Gameplay.iniciar(): number
+	local orbs = CollectionService:GetTagged(Tags.ORB)
+	local total = #orbs
+
+	local remotes = criarRemotes(total)
+	local evOrb = remotes:WaitForChild("OrbColetado") :: RemoteEvent
+	local evVoltar = remotes:WaitForChild("VoltarAoCentro") :: RemoteEvent
+	local evAviso = remotes:WaitForChild("AvisoHUD") :: RemoteEvent
+
+	Players.PlayerAdded:Connect(darLeaderstats)
+	for _, p in Players:GetPlayers() do
+		darLeaderstats(p)
+	end
+
+	for _, orb in orbs do
+		if orb:IsA("BasePart") then
+			prepararOrb(orb, total, evOrb)
+		end
+	end
+
+	Tags.observar(Tags.NUCLEO, function(nucleo)
+		if nucleo:IsA("BasePart") then
+			prepararNucleo(nucleo, evAviso)
+		end
+	end)
+
+	-- teleporte pedido pela HUD: o cliente só pede, o servidor decide
+	local ultimoTeleporte: { [Player]: number } = {}
+	Players.PlayerRemoving:Connect(function(player)
+		ultimoTeleporte[player] = nil
+	end)
+
 	evVoltar.OnServerEvent:Connect(function(player)
+		local agora = os.clock()
+		if agora - (ultimoTeleporte[player] or 0) < Config.COOLDOWN_TELEPORTE then
+			return
+		end
+		ultimoTeleporte[player] = agora
+
+		local destino = CollectionService:GetTagged(Tags.DESTINO_TELEPORTE)[1]
 		local char = player.Character
 		local hrp = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
-		if hrp then
-			hrp.CFrame = Config.DESTINO_TELEPORTE
+		if hrp and destino and destino:IsA("BasePart") then
+			hrp.CFrame = destino.CFrame
 			evAviso:FireClient(player, "Teleportado para o centro")
 		end
 	end)

@@ -1,0 +1,39 @@
+{
+  "className": "Tool",
+  "properties": {
+    "CanBeDropped": false,
+    "RequiresHandle": true
+  },
+  "attributes": {
+    "ItemId": "Lanterna"
+  },
+  "children": [
+    {
+      "name": "Handle",
+      "className": "Part",
+      "properties": {
+        "Size": [0.5, 0.5, 1.6],
+        "Color": [1.0, 0.73, 0.24],
+        "Material": "SmoothPlastic",
+        "TopSurface": "Smooth",
+        "BottomSurface": "Smooth",
+        "CanCollide": false
+      },
+      "children": [
+        {
+          "name": "Feixe",
+          "className": "SpotLight",
+          "properties": {
+            "Face": "Front",
+            "Angle": 50,
+            "Range": 45,
+            "Brightness": 5,
+            "Color": [1.0, 0.95, 0.82],
+            "Shadows": true,
+            "Enabled": false
+          }
+        }
+      ]
+    }
+  ]
+}

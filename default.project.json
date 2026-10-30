@@ -12,6 +12,10 @@
       "Jogo": { "$path": "src/server" }
     },
 
+    "ServerStorage": {
+      "Itens": { "$path": "assets/Itens" }
+    },
+
     "StarterPlayer": {
       "StarterPlayerScripts": {
         "Cliente": { "$path": "src/client" }

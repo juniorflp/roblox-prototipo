@@ -117,7 +117,7 @@ function HUD.criar()
 	local valor = texto("Valor", cardOrbs, {
 		Position = UDim2.new(0, 18, 0, 29),
 		Size = UDim2.new(1, -36, 0, 24),
-		Text = "0 / " .. #Config.ORBS,
+		Text = "0 / -",
 		TextColor3 = C.ouro,
 		Font = Enum.Font.GothamBold,
 		TextSize = 22,
@@ -209,7 +209,8 @@ function HUD.criar()
 	local evVoltar = remotes:WaitForChild("VoltarAoCentro") :: RemoteEvent
 	local evAviso = remotes:WaitForChild("AvisoHUD") :: RemoteEvent
 
-	local total = #Config.ORBS
+	local total = (remotes:GetAttribute("TotalOrbs") :: number?) or 0
+	valor.Text = "0 / " .. total
 	local tokenAviso = 0
 
 	local function mostrarAviso(mensagem: string)
