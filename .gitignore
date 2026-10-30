@@ -1,0 +1,13 @@
+# Place files: binários, não versionar
+*.rbxl
+*.rbxlx
+*.rbxl.lock
+*.rbxlx.lock
+*.rbxm
+*.rbxmx
+
+# Gerados
+sourcemap.json
+/out/
+
+.DS_Store

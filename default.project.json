@@ -1,0 +1,21 @@
+{
+  "name": "prototipo",
+  "globIgnorePaths": ["**/.DS_Store"],
+  "tree": {
+    "$className": "DataModel",
+
+    "ReplicatedStorage": {
+      "Compartilhado": { "$path": "src/shared" }
+    },
+
+    "ServerScriptService": {
+      "Jogo": { "$path": "src/server" }
+    },
+
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "Cliente": { "$path": "src/client" }
+      }
+    }
+  }
+}
